@@ -304,7 +304,9 @@ This analysis demonstrates that even small improvements in payment efficiency ca
 
 ## Excel Scenario Model Output
 
-![Excel Scenario Model](docs/excel_scenario_model.png)
+![Excel Scenario Model](docs/excel_scenario_model_1.png)
+
+![Excel Scenario Model](docs/excel_scenario_model_2.png)
 
 ---
 
