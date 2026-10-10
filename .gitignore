@@ -1,0 +1,9 @@
+# local environment & Office/Jupyter artifacts
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+~$*
+# generated database (rebuild with python/build_database.py)
+*.db
+# credentials never go in the repo
+.env

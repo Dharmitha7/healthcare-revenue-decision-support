@@ -1,0 +1,93 @@
+// =====================================================================
+// measures.dax  |  Paste into a Power BI "Measures" table (Home > Enter data > name it "_Measures")
+// Model: see powerbi/README.md.  Table names assumed:
+//   fact_discharge, dim_provider, dim_drg, dim_state, dim_geography, provider_severity_screen
+// Every definition mirrors sql/02_views.sql so the report ties to the SQL and Excel numbers.
+// =====================================================================
+
+// ---------- 1. Base measures ------------------------------------------------
+Discharges        = SUM ( fact_discharge[total_discharges] )
+Total Charges     = SUM ( fact_discharge[total_charges] )
+Total Payment     = SUM ( fact_discharge[total_payment] )
+Medicare Payment  = SUM ( fact_discharge[total_medicare_payment] )
+
+// Descriptive only: charges are list prices, so this is NOT recoverable revenue.
+Charge Gap        = [Total Charges] - [Total Payment]
+
+// ---------- 2. Ratios (always ratio of sums, never average of ratios) -------
+Payment-to-Charge Ratio = DIVIDE ( [Total Payment], [Total Charges] )
+Payment per Discharge   = DIVIDE ( [Total Payment], [Discharges] )
+Charge per Discharge    = DIVIDE ( [Total Charges], [Discharges] )
+Medicare Share of Payment = DIVIDE ( [Medicare Payment], [Total Payment] )
+
+National PCR =
+CALCULATE ( [Payment-to-Charge Ratio], ALL ( fact_discharge ), ALL ( dim_provider ), ALL ( dim_drg ), ALL ( dim_state ), ALL ( dim_geography ) )
+
+PCR vs National (pts) = [Payment-to-Charge Ratio] - [National PCR]
+
+// ---------- 3. Case-mix-adjusted indices (1.00 = national, same DRG mix) ----
+// dim_drg carries the national per-discharge benchmark for each DRG.
+Expected Charges =
+SUMX ( fact_discharge, fact_discharge[total_discharges] * RELATED ( dim_drg[nat_charge_per_discharge] ) )
+
+Expected Payment =
+SUMX ( fact_discharge, fact_discharge[total_discharges] * RELATED ( dim_drg[nat_payment_per_discharge] ) )
+
+Charge Index  = DIVIDE ( [Total Charges], [Expected Charges] )
+Payment Index = DIVIDE ( [Total Payment], [Expected Payment] )
+
+// Decomposition identity:  PCR = National PCR x Payment Index / Charge Index
+Charge Index vs National = [Charge Index] - 1
+
+// ---------- 4. Concentration (Pareto by hospital) ----------------------------
+Hospital Gap Rank =
+RANKX ( ALL ( dim_provider[provider_id] ), [Charge Gap], , DESC, DENSE )
+
+Cumulative Gap Share =
+VAR _rank = [Hospital Gap Rank]
+VAR _cum =
+    SUMX (
+        FILTER ( ALL ( dim_provider[provider_id] ), [Hospital Gap Rank] <= _rank ),
+        [Charge Gap]
+    )
+RETURN DIVIDE ( _cum, CALCULATE ( [Charge Gap], ALL ( dim_provider ) ) )
+
+Share of Total Gap =
+DIVIDE ( [Charge Gap], CALCULATE ( [Charge Gap], ALLSELECTED ( dim_provider ) ) )
+
+Hospitals to Reach 50% of Gap =
+// how many top hospitals it takes to reach half of the gap (use in a card, no filters)
+VAR _t = ADDCOLUMNS ( ALL ( dim_provider[provider_id] ), "@cum", [Cumulative Gap Share] )
+RETURN COUNTROWS ( FILTER ( _t, [@cum] <= 0.5 ) )
+
+// ---------- 5. Documentation-capture screen (what-if driven) ---------------
+// Create two parameters: Modeling > New parameter > Numeric range
+//   Review Threshold: 0 to 0.05, step 0.005, default 0.02   -> creates [Review Threshold Value]
+//   Capture Rate:     0.05 to 0.50, step 0.05, default 0.25 -> creates [Capture Rate Value]
+Eligible Shortfall =
+CALCULATE (
+    SUM ( provider_severity_screen[severity_shortfall] ),
+    provider_severity_screen[severity_shortfall] > 0,
+    provider_severity_screen[shortfall_pct] >= [Review Threshold Value]
+)
+
+Documentation Opportunity = [Eligible Shortfall] * [Capture Rate Value]
+
+Eligible Hospitals =
+CALCULATE (
+    COUNTROWS ( provider_severity_screen ),
+    provider_severity_screen[severity_shortfall] > 0,
+    provider_severity_screen[shortfall_pct] >= [Review Threshold Value]
+)
+
+// ---------- 6. Presentation helpers ----------------------------------------
+Gap Callout =
+"$" & FORMAT ( [Charge Gap] / 1e9, "#,##0" ) & "B gap on $" & FORMAT ( [Total Charges] / 1e9, "#,##0" ) & "B of charges"
+
+Charge Index Colour =   // conditional-format rule for tables/maps: dark = above national
+SWITCH ( TRUE (), [Charge Index] >= 1.25, "#1D4E89", [Charge Index] >= 1, "#5B84B1", "#C9D6E6" )
+
+// ---------- 7. If multi-year data is added (phase 2) ------------------------
+// Add a dim_date (data year) table and reuse the same base measures:
+// Payment per Discharge YoY % = DIVIDE ( [Payment per Discharge], CALCULATE ( [Payment per Discharge], SAMEPERIODLASTYEAR ( dim_date[Date] ) ) ) - 1
+// Charge per Discharge YoY %  = DIVIDE ( [Charge per Discharge],  CALCULATE ( [Charge per Discharge],  SAMEPERIODLASTYEAR ( dim_date[Date] ) ) ) - 1
