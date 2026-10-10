@@ -7,3 +7,6 @@ __pycache__/
 *.db
 # credentials never go in the repo
 .env
+
+# Power BI local cache
+powerbi/**/.pbi/

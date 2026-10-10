@@ -1,0 +1,14 @@
+table 'Capture Rate'
+	lineageTag: eb5ff8f3-6e75-5ee9-99b7-2aedf90ffbc2
+
+	column 'Capture Rate'
+		dataType: double
+		formatString: 0%
+		lineageTag: eb680d21-6d89-56f9-a741-a507671cdc8b
+		summarizeBy: none
+		sourceColumn: [Value]
+
+	partition 'Capture Rate' = calculated
+		mode: import
+		source = GENERATESERIES ( 0.05, 0.5, 0.05 )
+

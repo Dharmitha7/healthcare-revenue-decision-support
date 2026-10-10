@@ -1,0 +1,31 @@
+table dim_geography
+	lineageTag: 4cccba93-2539-5770-b2bb-d455144f0fc2
+
+	column ruca_code
+		dataType: double
+		lineageTag: ee0cebfe-538a-51a0-ba51-265ba6c4de06
+		summarizeBy: none
+		sourceColumn: ruca_code
+
+	column ruca_desc
+		dataType: string
+		lineageTag: a4db4fe4-cc07-5b5b-bc63-18a63b76a8d8
+		summarizeBy: none
+		sourceColumn: ruca_desc
+
+	column setting
+		dataType: string
+		lineageTag: 6db4a1ad-00a6-5a6a-8954-b86b37a27df1
+		summarizeBy: none
+		sourceColumn: setting
+
+	partition dim_geography = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents(DataFolder & "dim_geography.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+				    Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+				    Typed = Table.TransformColumnTypes(Promoted, {{"ruca_code", type number}}, "en-US")
+				in
+				    Typed
+

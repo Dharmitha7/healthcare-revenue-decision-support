@@ -1,0 +1,22 @@
+relationship 7743557c-d5f2-579b-a886-2c5e564df05b
+	fromColumn: fact_discharge.provider_id
+	toColumn: dim_provider.provider_id
+
+relationship ebd15afd-13b4-50d7-8084-90085d55f084
+	fromColumn: fact_discharge.drg_code
+	toColumn: dim_drg.drg_code
+
+relationship 65081993-0a45-5699-9a7c-d82bb35246d7
+	fromColumn: dim_provider.state_code
+	toColumn: dim_state.state_code
+
+relationship f36439bd-d977-5229-b25c-49ced55e7918
+	fromColumn: dim_provider.ruca_code
+	toColumn: dim_geography.ruca_code
+
+relationship e95b29aa-4448-57d3-bf7b-f1502e26c544
+	crossFilteringBehavior: bothDirections
+	fromCardinality: one
+	fromColumn: provider_severity_screen.provider_id
+	toColumn: dim_provider.provider_id
+

@@ -1,0 +1,31 @@
+table dim_state
+	lineageTag: 10e42edb-9286-5f0a-9aae-bdb69b964bd4
+
+	column state_code
+		dataType: string
+		lineageTag: d0f2eab7-e161-5c2b-9910-9fd0fab6f1f7
+		summarizeBy: none
+		sourceColumn: state_code
+
+	column state_name
+		dataType: string
+		lineageTag: 85152be4-a554-550f-9824-13f4f1606831
+		summarizeBy: none
+		sourceColumn: state_name
+
+	column census_region
+		dataType: string
+		lineageTag: 66e2d518-2c12-55a0-af7d-b35fdb63299c
+		summarizeBy: none
+		sourceColumn: census_region
+
+	partition dim_state = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents(DataFolder & "dim_state.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+				    Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+				    Typed = Table.TransformColumnTypes(Promoted, {{"state_code", type text}}, "en-US")
+				in
+				    Typed
+

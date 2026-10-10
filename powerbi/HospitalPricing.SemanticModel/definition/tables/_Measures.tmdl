@@ -1,0 +1,118 @@
+table _Measures
+	lineageTag: da27fa91-4af8-51c0-af28-9b21f9a4a0b7
+
+	measure Discharges = SUM ( fact_discharge[total_discharges] )
+		formatString: #,0
+		lineageTag: 355e47bd-bca3-5ac0-9fd5-64d6256ff4be
+
+	measure 'Total Charges' = SUM ( fact_discharge[total_charges] )
+		formatString: $#,0.0
+		lineageTag: 9dd1d621-a82d-5003-a1ec-3757ae1256ba
+
+	measure 'Total Payment' = SUM ( fact_discharge[total_payment] )
+		formatString: $#,0.0
+		lineageTag: f9b9fad3-ccce-5c57-8131-69dc6800f6f7
+
+	measure 'Medicare Payment' = SUM ( fact_discharge[total_medicare_payment] )
+		formatString: $#,0.0
+		lineageTag: 29056649-1eb3-525d-99a2-acfc1e5ca1e3
+
+	measure 'Charge Gap' = [Total Charges] - [Total Payment]
+		formatString: $#,0.0
+		lineageTag: 385e0521-9f62-5e5d-848c-b92ee5aeda6c
+
+	measure 'Payment-to-Charge Ratio' = DIVIDE ( [Total Payment], [Total Charges] )
+		formatString: 0.0%
+		lineageTag: 74176378-4146-5ee8-9f65-2a7e2ec351c1
+
+	measure 'Payment per Discharge' = DIVIDE ( [Total Payment], [Discharges] )
+		formatString: $#,0
+		lineageTag: 705a80fa-97df-597d-91a7-91126f5208dc
+
+	measure 'Charge per Discharge' = DIVIDE ( [Total Charges], [Discharges] )
+		formatString: $#,0
+		lineageTag: bf99e0ea-fcaf-5159-b1bf-5151df035c48
+
+	measure 'Medicare Share of Payment' = DIVIDE ( [Medicare Payment], [Total Payment] )
+		formatString: 0.0%
+		lineageTag: 4fd98078-1a63-50ae-8199-d4376f3d1022
+
+	measure 'National PCR' = CALCULATE ( [Payment-to-Charge Ratio], ALL ( fact_discharge ), ALL ( dim_provider ), ALL ( dim_drg ), ALL ( dim_state ), ALL ( dim_geography ) )
+		formatString: 0.0%
+		lineageTag: 193dbda9-7d8c-54eb-8332-22aa07a9cdba
+
+	measure 'Expected Charges' = SUMX ( fact_discharge, fact_discharge[total_discharges] * RELATED ( dim_drg[nat_charge_per_discharge] ) )
+		formatString: $#,0.0
+		lineageTag: 21116da9-e78e-522b-b368-971400995eac
+
+	measure 'Expected Payment' = SUMX ( fact_discharge, fact_discharge[total_discharges] * RELATED ( dim_drg[nat_payment_per_discharge] ) )
+		formatString: $#,0.0
+		lineageTag: 4dbc65e6-1275-5319-8ae6-61ea8f12254f
+
+	measure 'Charge Index' = DIVIDE ( [Total Charges], [Expected Charges] )
+		formatString: 0.00
+		lineageTag: c28d5bf8-ca52-5676-a3d1-57339233291d
+
+	measure 'Payment Index' = DIVIDE ( [Total Payment], [Expected Payment] )
+		formatString: 0.00
+		lineageTag: c3de4c1b-608b-5954-a285-6325a8f694b4
+
+	measure 'Hospital Count' = DISTINCTCOUNT ( dim_provider[provider_id] )
+		formatString: #,0
+		lineageTag: 93e747fc-61ac-5ff9-b10a-7aa1bdf9d9c8
+
+	measure 'Share of Total Gap' = DIVIDE ( [Charge Gap], CALCULATE ( [Charge Gap], ALLSELECTED ( dim_provider ) ) )
+		formatString: 0.0%
+		lineageTag: ff1082c7-f2aa-50ef-ba62-ea53e2fe24ba
+
+	measure 'Hospitals to Reach 50% of Gap' = COUNTROWS ( FILTER ( ALL ( dim_provider ), dim_provider[gap_cum_share] <= 0.5 ) )
+		formatString: #,0
+		lineageTag: 57532ccf-966a-56e1-980f-95cc1d58cf72
+
+	measure 'Top 10 DRG Gap' = IF ( RANKX ( ALL ( dim_drg ), [Charge Gap], , DESC, DENSE ) <= 10, [Charge Gap] )
+		formatString: $#,0.0
+		lineageTag: 665e74bd-b197-506f-971e-37ec2ad4d4e2
+
+	measure 'Top 50 Hospital Gap' = IF ( MIN ( dim_provider[gap_rank] ) <= 50, [Charge Gap] )
+		formatString: $#,0.0
+		lineageTag: 3a104f6b-d58e-5593-8f69-f4b775b4b815
+
+	measure 'Review Threshold Value' = SELECTEDVALUE ( 'Review Threshold'[Review Threshold], 0.02 )
+		formatString: 0.0%
+		lineageTag: 79b14ea2-0d7e-5c61-826d-025563ceb226
+
+	measure 'Capture Rate Value' = SELECTEDVALUE ( 'Capture Rate'[Capture Rate], 0.25 )
+		formatString: 0%
+		lineageTag: c6c5cab3-aef7-5af0-9a54-89836251eb52
+
+	measure 'Eligible Shortfall' =
+			VAR thr = [Review Threshold Value]
+			RETURN CALCULATE ( SUM ( provider_severity_screen[severity_shortfall] ),
+			    provider_severity_screen[severity_shortfall] > 0,
+			    provider_severity_screen[shortfall_pct] >= thr )
+		formatString: $#,0
+		lineageTag: acfe4866-e495-5345-8737-6f012c3afa50
+
+	measure 'Documentation Opportunity' = [Eligible Shortfall] * [Capture Rate Value]
+		formatString: $#,0
+		lineageTag: 443fd53d-3b81-56f1-876b-1a67412e6650
+
+	measure 'Eligible Hospitals' =
+			VAR thr = [Review Threshold Value]
+			RETURN CALCULATE ( COUNTROWS ( provider_severity_screen ),
+			    provider_severity_screen[severity_shortfall] > 0,
+			    provider_severity_screen[shortfall_pct] >= thr )
+		formatString: #,0
+		lineageTag: fe83f13e-2ab0-500b-b581-27d4d57312de
+
+	column Value
+		dataType: int64
+		isHidden
+		lineageTag: abade4b8-fa70-5933-b8dd-78fbb1e3c1aa
+		summarizeBy: none
+		sourceColumn: [Value]
+
+	partition _Measures = calculated
+		mode: import
+		source = {1}
+

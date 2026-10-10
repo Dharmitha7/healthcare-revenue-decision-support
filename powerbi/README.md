@@ -1,4 +1,8 @@
-# Power BI executive dashboard: build guide
+# Power BI executive dashboard
+
+**Ready to open:** double-click `HospitalPricing.pbip` (Power BI Desktop, April 2025 or later). It contains the star-schema model, the relationships, every measure in `measures.dax`, and the four report pages. On first open click **Apply changes**, then **Refresh**. Edit the `DataFolder` parameter (Transform data > Edit parameters) if the repo is in a different folder. To get a `.pbix`: File > Save a copy > Browse this device. `build_pbip.py` regenerates the project.
+
+The guide below describes how the same report is built by hand.
 
 Everything needed to assemble the report in about 30 minutes. The `.pbix` itself is not committed
 because it is a binary built in Power BI Desktop; the model, measures and theme below are the reviewable source.

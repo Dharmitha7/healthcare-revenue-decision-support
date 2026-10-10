@@ -1,0 +1,97 @@
+table dim_provider
+	lineageTag: 54d3df3a-e0b1-5d3b-8fc4-42342ff0ae67
+
+	column provider_id
+		dataType: string
+		lineageTag: e0208014-f7bf-5d08-a1d2-2641ebddd233
+		summarizeBy: none
+		sourceColumn: provider_id
+
+	column provider_name
+		dataType: string
+		lineageTag: 0ac491fa-a440-5b3f-acf6-6575f2eb42b4
+		summarizeBy: none
+		sourceColumn: provider_name
+
+	column city
+		dataType: string
+		lineageTag: c65fb86b-459a-52a7-a900-1d2be5ddcac5
+		summarizeBy: none
+		sourceColumn: city
+
+	column street
+		dataType: string
+		lineageTag: 83f48dcf-5363-5f11-a38c-789816619269
+		summarizeBy: none
+		sourceColumn: street
+
+	column zip5
+		dataType: string
+		lineageTag: b405ee4e-b889-557f-ae1e-d572e8333145
+		summarizeBy: none
+		sourceColumn: zip5
+
+	column state_code
+		dataType: string
+		lineageTag: d0f2eab7-e161-5c2b-9910-9fd0fab6f1f7
+		summarizeBy: none
+		sourceColumn: state_code
+
+	column ruca_code
+		dataType: double
+		lineageTag: ee0cebfe-538a-51a0-ba51-265ba6c4de06
+		summarizeBy: none
+		sourceColumn: ruca_code
+
+	column state_name
+		dataType: string
+		lineageTag: 85152be4-a554-550f-9824-13f4f1606831
+		summarizeBy: none
+		sourceColumn: state_name
+
+	column census_region
+		dataType: string
+		lineageTag: 66e2d518-2c12-55a0-af7d-b35fdb63299c
+		summarizeBy: none
+		sourceColumn: census_region
+
+	column setting
+		dataType: string
+		lineageTag: 6db4a1ad-00a6-5a6a-8954-b86b37a27df1
+		summarizeBy: none
+		sourceColumn: setting
+
+	column segment
+		dataType: string
+		lineageTag: e2b7cafd-6209-534a-b561-cf6df1cc2924
+		summarizeBy: none
+		sourceColumn: segment
+
+	column gap_total = CALCULATE ( SUM ( fact_discharge[charge_gap] ) )
+		formatString: $#,0
+		lineageTag: d5a3d4d7-2292-5619-a981-c008e11d9a33
+		summarizeBy: none
+
+	column gap_rank = RANKX ( dim_provider, dim_provider[gap_total], , DESC, DENSE )
+		formatString: 0
+		lineageTag: 9d2b9118-eb58-5400-9837-30848c94d115
+		summarizeBy: none
+
+	column gap_cum_share =
+			VAR g = dim_provider[gap_total]
+			RETURN DIVIDE ( SUMX ( FILTER ( ALL ( dim_provider ), dim_provider[gap_total] >= g ), dim_provider[gap_total] ),
+			                SUM ( dim_provider[gap_total] ) )
+		formatString: 0.0%
+		lineageTag: 43a54387-fb3e-5c5d-b28f-cc5416b1558e
+		summarizeBy: none
+
+	partition dim_provider = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents(DataFolder & "dim_provider.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+				    Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+				    Typed = Table.TransformColumnTypes(Promoted, {{"provider_id", type text}, {"zip5", type text}, {"state_code", type text}, {"ruca_code", type number}}, "en-US")
+				in
+				    Typed
+

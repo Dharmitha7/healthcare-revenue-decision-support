@@ -40,45 +40,48 @@ Payment Index = DIVIDE ( [Total Payment], [Expected Payment] )
 Charge Index vs National = [Charge Index] - 1
 
 // ---------- 4. Concentration (Pareto by hospital) ----------------------------
-Hospital Gap Rank =
-RANKX ( ALL ( dim_provider[provider_id] ), [Charge Gap], , DESC, DENSE )
-
-Cumulative Gap Share =
-VAR _rank = [Hospital Gap Rank]
-VAR _cum =
-    SUMX (
-        FILTER ( ALL ( dim_provider[provider_id] ), [Hospital Gap Rank] <= _rank ),
-        [Charge Gap]
-    )
-RETURN DIVIDE ( _cum, CALCULATE ( [Charge Gap], ALL ( dim_provider ) ) )
+// Three calculated columns on dim_provider (a measure-only version is far too slow over 2,945 hospitals):
+//   gap_total     = CALCULATE ( SUM ( fact_discharge[charge_gap] ) )
+//   gap_rank      = RANKX ( dim_provider, dim_provider[gap_total], , DESC, DENSE )
+//   gap_cum_share = VAR g = dim_provider[gap_total]
+//                   RETURN DIVIDE ( SUMX ( FILTER ( ALL ( dim_provider ), dim_provider[gap_total] >= g ), dim_provider[gap_total] ),
+//                                   SUM ( dim_provider[gap_total] ) )
+Hospital Count = DISTINCTCOUNT ( dim_provider[provider_id] )
 
 Share of Total Gap =
 DIVIDE ( [Charge Gap], CALCULATE ( [Charge Gap], ALLSELECTED ( dim_provider ) ) )
 
 Hospitals to Reach 50% of Gap =
-// how many top hospitals it takes to reach half of the gap (use in a card, no filters)
-VAR _t = ADDCOLUMNS ( ALL ( dim_provider[provider_id] ), "@cum", [Cumulative Gap Share] )
-RETURN COUNTROWS ( FILTER ( _t, [@cum] <= 0.5 ) )
+COUNTROWS ( FILTER ( ALL ( dim_provider ), dim_provider[gap_cum_share] <= 0.5 ) )
+
+// Blank outside the top N, so a bar chart shows only the top N without a visual filter
+Top 10 DRG Gap     = IF ( RANKX ( ALL ( dim_drg ), [Charge Gap], , DESC, DENSE ) <= 10, [Charge Gap] )
+Top 50 Hospital Gap = IF ( MIN ( dim_provider[gap_rank] ) <= 50, [Charge Gap] )
 
 // ---------- 5. Documentation-capture screen (what-if driven) ---------------
 // Create two parameters: Modeling > New parameter > Numeric range
 //   Review Threshold: 0 to 0.05, step 0.005, default 0.02   -> creates [Review Threshold Value]
 //   Capture Rate:     0.05 to 0.50, step 0.05, default 0.25 -> creates [Capture Rate Value]
+// Positive shortfall = hospital is below its peers. A measure cannot sit inside a CALCULATE filter, so it is read into a variable first.
 Eligible Shortfall =
-CALCULATE (
-    SUM ( provider_severity_screen[severity_shortfall] ),
-    provider_severity_screen[severity_shortfall] > 0,
-    provider_severity_screen[shortfall_pct] >= [Review Threshold Value]
-)
+VAR thr = [Review Threshold Value]
+RETURN
+    CALCULATE (
+        SUM ( provider_severity_screen[severity_shortfall] ),
+        provider_severity_screen[severity_shortfall] > 0,
+        provider_severity_screen[shortfall_pct] >= thr
+    )
 
 Documentation Opportunity = [Eligible Shortfall] * [Capture Rate Value]
 
 Eligible Hospitals =
-CALCULATE (
-    COUNTROWS ( provider_severity_screen ),
-    provider_severity_screen[severity_shortfall] > 0,
-    provider_severity_screen[shortfall_pct] >= [Review Threshold Value]
-)
+VAR thr = [Review Threshold Value]
+RETURN
+    CALCULATE (
+        COUNTROWS ( provider_severity_screen ),
+        provider_severity_screen[severity_shortfall] > 0,
+        provider_severity_screen[shortfall_pct] >= thr
+    )
 
 // ---------- 6. Presentation helpers ----------------------------------------
 Gap Callout =

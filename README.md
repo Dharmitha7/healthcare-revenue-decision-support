@@ -75,9 +75,13 @@ lists, and **about 97% of the variation in payment-to-charge ratios across hospi
 For the same service, hospitals' charges differ about 4× between the 90th and 10th percentile; payments differ about 1.7×.
 The gap is concentrated: **240 hospitals (8%)** and **25 service lines (5%)** account for half of it, and **656 large high-charge systems** hold 63%.
 The payment lever hospitals do control is **severity documentation**: 473 hospitals bill a case mix at least 2% lighter than peers,
-worth **~$139M a year at a 25% capture rate** (range $56M–$277M), starting with **$31M from a 25-hospital pilot**.
+worth **~$139M a year at a 25% capture rate** (range $56M to $277M), starting with **$31M from a 25-hospital pilot**.
 
 ## 4. Insights Deep Dive
+
+The Power BI report ([`powerbi/HospitalPricing.pbip`](powerbi/), open in Power BI Desktop) carries the same numbers on four pages. Page 1 is below; the others are in [`docs/images/`](docs/images/). A browser version is in [`dashboard/`](dashboard/index.html).
+
+![Power BI, executive summary](docs/images/powerbi_1_executive_summary.png)
 
 ### Insight 1: The gap is large, concentrated, and led by a few service lines
 **Metric:** share of the $344B charge gap · **Evidence:** DRG 871 (sepsis with major complications) alone is **11.1% ($38B)**; the top 5 DRGs are 25% and the top 25 are 50%.
@@ -95,8 +99,8 @@ versus 20% nationally.
 ![Charges versus payments](docs/images/04_why_charges_drive_gap.png)
 
 ### Insight 3: Price levels are regional, and high-charge systems carry most of the gap
-**Metric:** charge index vs national, same DRG mix · **Evidence:** Nevada (1.75) and California (1.64) price ~65–75% above national; Maryland sits at 0.33.
-Metropolitan hospitals charge 1.02 vs 0.64–0.74 in small-town and rural hospitals. Segmentation (k-means, five groups) finds
+**Metric:** charge index vs national, same DRG mix · **Evidence:** Nevada (1.75) and California (1.64) price 65% to 75% above national; Maryland sits at 0.33.
+Metropolitan hospitals charge 1.02 vs 0.64 to 0.74 in small-town and rural hospitals. Segmentation (k-means, five groups) finds
 **656 large high-charge systems** (median charge index 1.36, payment index 0.99) holding **63%** of the gap at a 15.6% payment-to-charge ratio,
 versus 932 large mainstream systems (charge index 0.68, payment index 0.85) at 27.0%.
 **So what:** similar-sized systems are paid within about 15% of each other but list prices at twice the level; pricing governance belongs on the executive agenda.
@@ -119,7 +123,7 @@ At a 25% capture rate, a 25-hospital pilot is worth **$31M**, 100 hospitals **$7
 | # | Action | Evidence | Size |
 |---|---|---|---|
 | 1 | **Stop reporting the charge gap as "revenue leakage."** Track payment-to-charge ratio and charge index vs peers instead. | 97% of PCR variation is charge-setting | Reframes every downstream decision |
-| 2 | **Launch a 25-hospital documentation (CDI) pilot** at the largest shortfalls vs peers; scale to 100 if realised capture is 25% or more. | Insight 4 | $13M–$63M pilot; $31M base |
+| 2 | **Launch a 25-hospital documentation (CDI) pilot** at the largest shortfalls vs peers; scale to 100 if realised capture is 25% or more. | Insight 4 | $13M to $63M pilot; $31M base |
 | 3 | **Put pricing governance on the 656 high-charge systems**, beginning with the 25 service lines that make up half the gap (sepsis, heart failure, respiratory infection first). | Insights 1 and 3 | Does not change Medicare payment; reduces patient and commercial-payer exposure (not measurable in this data) |
 | 4 | **Add two KPIs to the finance dashboard:** charge index vs national, and top-tier case share vs peers, reviewed quarterly. | Power BI model in [`powerbi/`](powerbi/) | Early warning on both levers |
 | 5 | **Next phase:** add earlier data years (trend), hospital cost reports for margin, and Medicare Advantage / commercial payment data. | Caveats below | Turns a screen into a forecast |
@@ -133,7 +137,7 @@ At a 25% capture rate, a 25-hospital pilot is worth **$31M**, 100 hospitals **$7
 - **No cost data.** Profit margin cannot be computed; "opportunity" is payment effect, not profit.
 - **Severity screen is not a forecast.** Lighter mixes can be clinically legitimate (e.g. complex patients transferred out); the 10/25/50% capture rates are assumptions, not estimates. Any documentation change must be clinically supported and compliant.
 - **Data quality.** 281 rows (0.19%) show payment above charges; they are kept and flagged. 33 DRG titles are truncated by CMS and are left out of severity tiering. Full log in the [data dictionary](docs/data_dictionary.md).
-- **Power BI:** the report is specified (model, DAX, theme, page layout) in [`powerbi/`](powerbi/) but the `.pbix` is not committed and the DAX has not been executed in Power BI Desktop; follow the check figures in its README.
+- **Power BI:** `powerbi/HospitalPricing.pbip` was opened and refreshed in Power BI Desktop; the card totals match the SQL and Excel figures (charges $432.2B, payments $88.4B, 20.5% ratio). It is a Power BI Project (text files), not a saved `.pbix`. `dashboard/` is a separate browser version of the same four pages.
 
 ---
 
@@ -145,7 +149,8 @@ At a 25% capture rate, a 25-hospital pilot is worth **$31M**, 100 hospitals **$7
 | [`python/build_database.py`](python/build_database.py) | Raw CMS file → SQLite star schema (IDs kept as text) |
 | [`notebooks/healthcare_analysis.ipynb`](notebooks/healthcare_analysis.ipynb) | Cleaning, EDA, driver analysis, segmentation, severity screen, exports |
 | [`excel/healthcare_opportunity_model.xlsx`](excel/healthcare_opportunity_model.xlsx) | Live-formula scenario model with assumptions, sensitivity, and v1 reconciliation |
-| [`powerbi/`](powerbi/) | Model, DAX measures, Power Query loader, theme, build guide, star-schema CSVs |
+| [`powerbi/`](powerbi/) | Power BI Project (`HospitalPricing.pbip`: model, relationships, DAX measures, 4 report pages), theme, star-schema CSVs, generator script |
+| [`dashboard/`](dashboard/) | Browser version of the dashboard, data build and Playwright screenshot scripts |
 | [`docs/`](docs/) | Data dictionary, technical notes, chart images, archived v1 |
 
 *This README replaces v1, which reported a $717.6B "recoverable" gap. That figure double-counted a pivot-table total and treated list prices as revenue; the audit is in [technical notes](docs/technical_notes.md#audit-of-v1-kept-in-docsarchive_v1).*
