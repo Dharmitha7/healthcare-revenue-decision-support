@@ -1,0 +1,91 @@
+table provider_severity_screen
+	lineageTag: 788e3ad1-c665-55ba-a9b5-438c14edbfb6
+
+	column provider_id
+		dataType: string
+		lineageTag: e0208014-f7bf-5d08-a1d2-2641ebddd233
+		summarizeBy: none
+		sourceColumn: provider_id
+
+	column provider_name
+		dataType: string
+		lineageTag: 0ac491fa-a440-5b3f-acf6-6575f2eb42b4
+		summarizeBy: none
+		sourceColumn: provider_name
+
+	column state_code
+		dataType: string
+		lineageTag: d0f2eab7-e161-5c2b-9910-9fd0fab6f1f7
+		summarizeBy: none
+		sourceColumn: state_code
+
+	column setting
+		dataType: string
+		lineageTag: 6db4a1ad-00a6-5a6a-8954-b86b37a27df1
+		summarizeBy: none
+		sourceColumn: setting
+
+	column peer_group
+		dataType: string
+		lineageTag: a9d1ab2b-3b77-5763-8618-b2a2cbb1a323
+		summarizeBy: none
+		sourceColumn: peer_group
+
+	column tiered_families
+		dataType: int64
+		lineageTag: b4b73024-31a5-5f65-b48a-9203edc690de
+		summarizeBy: sum
+		sourceColumn: tiered_families
+
+	column tiered_discharges
+		dataType: int64
+		lineageTag: 632fc16d-2c44-58b1-a09e-7c500a3c5ac5
+		summarizeBy: sum
+		sourceColumn: tiered_discharges
+
+	column top_tier_share
+		dataType: double
+		lineageTag: 37f7c174-bfa7-5df8-bf04-944fd6fa9599
+		summarizeBy: sum
+		sourceColumn: top_tier_share
+
+	column peer_expected_top_tier_share
+		dataType: double
+		lineageTag: af7f3ef0-ae8b-57b0-ae32-848de1fad041
+		summarizeBy: sum
+		sourceColumn: peer_expected_top_tier_share
+
+	column actual_value
+		dataType: double
+		lineageTag: 43e0acdc-6a22-5f1d-af53-d1b277c5228c
+		summarizeBy: sum
+		sourceColumn: actual_value
+
+	column expected_value
+		dataType: double
+		lineageTag: 110cf02c-75da-55b7-a1f5-a5080da332a0
+		summarizeBy: sum
+		sourceColumn: expected_value
+
+	column severity_shortfall
+		dataType: double
+		lineageTag: 0979eb69-6670-548d-8444-68edd47f36b8
+		summarizeBy: sum
+		sourceColumn: severity_shortfall
+
+	column shortfall_pct
+		dataType: double
+		lineageTag: 17cc76f6-acfd-5b79-92f8-482bf2effaba
+		summarizeBy: sum
+		sourceColumn: shortfall_pct
+
+	partition provider_severity_screen = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents(DataFolder & "provider_severity_screen.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+				    Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+				    Typed = Table.TransformColumnTypes(Promoted, {{"provider_id", type text}, {"state_code", type text}, {"tiered_families", Int64.Type}, {"tiered_discharges", Int64.Type}, {"top_tier_share", type number}, {"peer_expected_top_tier_share", type number}, {"actual_value", type number}, {"expected_value", type number}, {"severity_shortfall", type number}, {"shortfall_pct", type number}}, "en-US")
+				in
+				    Typed
+

@@ -1,0 +1,14 @@
+table 'Review Threshold'
+	lineageTag: 8c9e9032-de4c-5533-862b-e9cb5af6d06e
+
+	column 'Review Threshold'
+		dataType: double
+		formatString: 0.0%
+		lineageTag: c1ca9fa9-9ccb-5c24-8b46-cbe65e9e85ac
+		summarizeBy: none
+		sourceColumn: [Value]
+
+	partition 'Review Threshold' = calculated
+		mode: import
+		source = GENERATESERIES ( 0, 0.05, 0.005 )
+

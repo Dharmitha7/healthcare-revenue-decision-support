@@ -1,0 +1,69 @@
+table dim_drg
+	lineageTag: 1a8e0156-6479-59e1-9c55-e0ad4337460f
+
+	column drg_code
+		dataType: string
+		lineageTag: 27d3474e-c3f4-59c9-b64e-5e54f4f5805e
+		summarizeBy: none
+		sourceColumn: drg_code
+
+	column drg_description
+		dataType: string
+		lineageTag: 9dcc07ba-9d89-5670-b9c8-894a7a324b33
+		summarizeBy: none
+		sourceColumn: drg_description
+
+	column drg_family
+		dataType: string
+		lineageTag: 94828ca2-d8f1-5aca-b65d-7df4e7b8b792
+		summarizeBy: none
+		sourceColumn: drg_family
+
+	column severity_tier
+		dataType: int64
+		lineageTag: 27ae9289-6c80-56e1-98b1-d209471effe5
+		summarizeBy: none
+		sourceColumn: severity_tier
+
+	column hospitals
+		dataType: int64
+		lineageTag: c18a2e78-6d0a-5779-9a89-0046ab2ccac6
+		summarizeBy: sum
+		sourceColumn: hospitals
+
+	column nat_charge_per_discharge
+		dataType: double
+		lineageTag: e9724b94-1864-58b1-a697-0effefb10650
+		summarizeBy: sum
+		sourceColumn: nat_charge_per_discharge
+
+	column nat_payment_per_discharge
+		dataType: double
+		lineageTag: 924a6250-6197-5d1b-b841-e9cdf1caf4e5
+		summarizeBy: sum
+		sourceColumn: nat_payment_per_discharge
+
+	column nat_pcr
+		dataType: double
+		lineageTag: 3643e92f-a5ba-5722-80f2-96f43ee74a2c
+		summarizeBy: sum
+		sourceColumn: nat_pcr
+
+	column drg_label
+		dataType: string
+		lineageTag: 3cfb34d7-83fc-58ea-9cde-65cc5e468528
+		summarizeBy: none
+		sourceColumn: drg_label
+		sortByColumn: drg_code
+
+	partition dim_drg = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents(DataFolder & "dim_drg.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+				    Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+				    Typed = Table.TransformColumnTypes(Promoted, {{"drg_code", type text}, {"severity_tier", Int64.Type}, {"hospitals", Int64.Type}, {"nat_charge_per_discharge", type number}, {"nat_payment_per_discharge", type number}, {"nat_pcr", type number}}, "en-US"),
+				    Label = Table.AddColumn(Typed, "drg_label", each [drg_code] & " - " & Text.Proper([drg_description]), type text)
+				in
+				    Label
+

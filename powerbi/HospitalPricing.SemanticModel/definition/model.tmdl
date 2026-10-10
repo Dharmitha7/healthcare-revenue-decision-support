@@ -1,0 +1,23 @@
+model Model
+	culture: en-US
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	discourageImplicitMeasures
+	sourceQueryCulture: en-US
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation PBI_QueryOrder = ["fact_discharge","dim_provider","dim_drg","dim_state","dim_geography","provider_severity_screen","DataFolder"]
+
+annotation PBI_ProTooling = ["DevMode"]
+
+ref table fact_discharge
+ref table dim_provider
+ref table dim_drg
+ref table dim_state
+ref table dim_geography
+ref table provider_severity_screen
+ref table _Measures
+ref table 'Review Threshold'
+ref table 'Capture Rate'
+

@@ -1,388 +1,156 @@
-# Healthcare Revenue Decision Support
-### Identifying Revenue Leakage and Modeling Recovery Opportunities in Medicare Hospital Billing
+# Hospital Pricing, Payment & Documentation Opportunity
+**Medicare inpatient analysis, 2,945 hospitals, 534 service lines, $432B in charges (CMS data year 2023)**
 
-## Executive Summary
-
-Healthcare providers often bill substantially higher amounts for inpatient services than what Medicare ultimately reimburses. This creates a large financial gap between submitted charges and actual payment received. While such differences are expected to some extent under reimbursement systems, persistent and large-scale gaps may signal operational inefficiencies, service-level billing challenges, or structural reimbursement pressure.
-
-This project analyzes Medicare inpatient provider-service data to quantify these revenue gaps, identify the providers and services contributing the most financial exposure, visualize patterns across the United States, and estimate how much revenue could potentially be recovered under different operational improvement strategies.
-
-Using a combination of **Python, SQL, Tableau, and Excel**, this project builds an end-to-end decision-support workflow that moves from raw billing data to strategic financial recommendations.
+SQL · Python · Excel · Power BI &nbsp;|&nbsp; [Executive summary ↓](#3-executive-summary) &nbsp;|&nbsp; [Recommendations ↓](#5-recommendations) &nbsp;|&nbsp; [Data dictionary](docs/data_dictionary.md) &nbsp;|&nbsp; [Technical notes](docs/technical_notes.md)
 
 ---
 
-## Business Problem
+## 1. Background & Overview
 
-Hospitals and healthcare systems operate under constant financial pressure. One important source of financial strain is the difference between what providers charge for services and what payers, such as Medicare, actually reimburse.
+Hospital finance leaders see a stark number in Medicare data: hospitals list **$432B** of charges for inpatient stays and
+are paid **$88B**. The question put to analytics was: *is the $344B difference revenue we are losing, and if not, where can we actually
+improve results?*
 
-From a business perspective, this raises several important questions:
+This analysis benchmarks every Medicare inpatient hospital and service line, separates what hospitals **control** (what they list and how they
+document care) from what they do **not** (Medicare's fixed per-DRG payment), and sizes the lever that is real.
 
-- Where are the largest financial gaps occurring?
-- Which services create the highest exposure?
-- Which hospitals contribute most to total unrecovered revenue?
-- Are these inefficiencies concentrated in specific states or regions?
-- How much revenue could be recovered through operational improvements?
+**Goals:** (1) size and locate the charge-to-payment gap, (2) explain what drives it, (3) segment hospitals for targeted action,
+(4) quantify the opportunity that is within a hospital's control.
 
-This project addresses those questions by quantifying **revenue leakage exposure** and developing a framework for evaluating potential recovery strategies.
+## 2. Data Structure Overview
 
----
+Source: CMS *Medicare Inpatient Hospitals by Provider and Service*, 2023 (146,427 hospital × DRG rows). Rebuilt as a star schema so
+every metric is a join away and defined once in SQL.
 
-## Business Questions Answered
+```mermaid
+erDiagram
+    dim_state    ||--o{ dim_provider : "state_code"
+    dim_geography ||--o{ dim_provider : "ruca_code"
+    dim_provider ||--o{ fact_discharge : "provider_id"
+    dim_drg      ||--o{ fact_discharge : "drg_code"
+    fact_discharge {
+        char6 provider_id PK
+        char3 drg_code PK
+        int total_discharges
+        decimal avg_submitted_charge
+        decimal avg_total_payment
+        decimal avg_medicare_payment
+    }
+    dim_provider {
+        char6 provider_id PK
+        text provider_name
+        char2 state_code FK
+        decimal ruca_code FK
+    }
+    dim_drg {
+        char3 drg_code PK
+        text drg_description
+        text drg_family
+        int severity_tier
+    }
+    dim_state {
+        char2 state_code PK
+        text state_name
+        text census_region
+    }
+    dim_geography {
+        decimal ruca_code PK
+        text setting
+    }
+```
 
-This project was designed to answer the following business questions:
+| Table | Grain | Key fields |
+|---|---|---|
+| `fact_discharge` | hospital × DRG | discharges, charge, total payment, Medicare payment |
+| `dim_provider` | hospital | name, city, state, rural-urban code |
+| `dim_drg` | service line | title, severity tier (MCC / CC / none) |
 
-1. **Where are the largest financial gaps between hospital charges and Medicare reimbursements?**  
-   This identifies the scale of potential revenue leakage.
+Key terms: **charges** = a hospital's list price. **Payment** = what is actually paid, all payers. **Payment-to-charge ratio (PCR)** = payment ÷ charges.
+**Charge index** = a hospital's charges vs the national average for the *same mix of DRGs* (1.00 = national).
 
-2. **Which inpatient services (DRGs) contribute the most to financial exposure?**  
-   This highlights whether certain service lines create disproportionate reimbursement pressure.
+## 3. Executive Summary
 
-3. **Which providers contribute the most total revenue gap when patient volume is considered?**  
-   This helps distinguish between isolated inefficiency and large-scale operational exposure.
+The headline gap is **$344B (80% of charges)**, but it is a **list-price effect, not lost revenue**: Medicare pays a fixed rate per DRG whatever a hospital
+lists, and **about 97% of the variation in payment-to-charge ratios across hospitals comes from what hospitals charge, not from what they are paid**.
+For the same service, hospitals' charges differ about 4× between the 90th and 10th percentile; payments differ about 1.7×.
+The gap is concentrated: **240 hospitals (8%)** and **25 service lines (5%)** account for half of it, and **656 large high-charge systems** hold 63%.
+The payment lever hospitals do control is **severity documentation**: 473 hospitals bill a case mix at least 2% lighter than peers,
+worth **~$139M a year at a 25% capture rate** (range $56M to $277M), starting with **$31M from a 25-hospital pilot**.
 
-4. **How does payment efficiency vary by geography?**  
-   This reveals state-level patterns in reimbursement efficiency and revenue exposure.
+## 4. Insights Deep Dive
 
-5. **How much revenue could be recovered under different operational improvement scenarios?**  
-   This converts descriptive analysis into decision-support modeling.
+The Power BI report ([`powerbi/HospitalPricing.pbip`](powerbi/), open in Power BI Desktop) carries the same numbers on four pages. Page 1 is below; the others are in [`docs/images/`](docs/images/). A browser version is in [`dashboard/`](dashboard/index.html).
 
----
+![Power BI, executive summary](docs/images/powerbi_1_executive_summary.png)
 
-## Project Objectives
+### Insight 1: The gap is large, concentrated, and led by a few service lines
+**Metric:** share of the $344B charge gap · **Evidence:** DRG 871 (sepsis with major complications) alone is **11.1% ($38B)**; the top 5 DRGs are 25% and the top 25 are 50%.
+The five largest hospital gaps (Cedars-Sinai, NYU Langone, NewYork-Presbyterian, Stanford, AdventHealth Orlando) total 6.4%.
+**So what:** a short list of service lines and large systems is where pricing and documentation reviews pay off first.
 
-The main objectives of this project were to:
+![Top service lines](docs/images/03_top_service_lines.png)
 
-- quantify the difference between submitted charges and Medicare payments
-- identify high-risk providers, services, and states
-- visualize concentration of financial exposure
-- distinguish between high-volume and high-intensity revenue leakage
-- build a financial scenario model to estimate revenue recovery potential
-- provide business recommendations based on the results
+### Insight 2: Hospitals differ in what they *charge*, not in what they are *paid*
+**Metric:** variation in payment-to-charge ratio · **Evidence:** across hospitals sorted into ten groups by charge level, the charge index rises **6.3×**
+(0.31 to 1.95) while the payment index moves only 1.06 to 1.13. Payment-to-charge falls from 70% to 12%. Maryland, which regulates hospital prices, has a ratio of **90%**
+versus 20% nationally.
+**So what:** a low payment-to-charge ratio signals a high list price, not an under-collection. Chasing the gap with collections effort cannot work.
 
----
+![Charges versus payments](docs/images/04_why_charges_drive_gap.png)
 
-## Dataset
+### Insight 3: Price levels are regional, and high-charge systems carry most of the gap
+**Metric:** charge index vs national, same DRG mix · **Evidence:** Nevada (1.75) and California (1.64) price 65% to 75% above national; Maryland sits at 0.33.
+Metropolitan hospitals charge 1.02 vs 0.64 to 0.74 in small-town and rural hospitals. Segmentation (k-means, five groups) finds
+**656 large high-charge systems** (median charge index 1.36, payment index 0.99) holding **63%** of the gap at a 15.6% payment-to-charge ratio,
+versus 932 large mainstream systems (charge index 0.68, payment index 0.85) at 27.0%.
+**So what:** similar-sized systems are paid within about 15% of each other but list prices at twice the level; pricing governance belongs on the executive agenda.
 
-**Source:** CMS Medicare Inpatient Provider Service Data
+<table><tr>
+<td><img src="docs/images/05_state_charge_index.png" alt="State charge index"></td>
+<td><img src="docs/images/06_segments.png" alt="Hospital segments"></td>
+</tr></table>
 
-The dataset includes hospital-level inpatient billing and reimbursement records across the United States. It contains information such as:
+### Insight 4: Severity documentation is the lever hospitals control
+**Metric:** share of cases coded at the highest severity tier vs peers · **Evidence:** of 1,996 hospitals with enough volume, **981 sit below their peer case mix**
+(worth $744M valued at national DRG payments, 1.07% of tiered payments); **473 are at least 2% below** ($555M).
+At a 25% capture rate, a 25-hospital pilot is worth **$31M**, 100 hospitals **$75M**, all eligible hospitals **$139M**.
+**So what:** a modest, auditable program, not a windfall. The screen identifies where to look; clinicians and compliance decide what is supportable.
 
-- provider identifiers
-- hospital names and locations
-- state and geographic information
-- Diagnosis Related Groups (DRGs)
-- total discharges
-- average submitted covered charges
-- average Medicare payment amounts
+![Severity screen](docs/images/07_severity_screen.png)
 
-This data provides a nationwide view of reimbursement patterns and potential revenue exposure.
+## 5. Recommendations
 
----
+| # | Action | Evidence | Size |
+|---|---|---|---|
+| 1 | **Stop reporting the charge gap as "revenue leakage."** Track payment-to-charge ratio and charge index vs peers instead. | 97% of PCR variation is charge-setting | Reframes every downstream decision |
+| 2 | **Launch a 25-hospital documentation (CDI) pilot** at the largest shortfalls vs peers; scale to 100 if realised capture is 25% or more. | Insight 4 | $13M to $63M pilot; $31M base |
+| 3 | **Put pricing governance on the 656 high-charge systems**, beginning with the 25 service lines that make up half the gap (sepsis, heart failure, respiratory infection first). | Insights 1 and 3 | Does not change Medicare payment; reduces patient and commercial-payer exposure (not measurable in this data) |
+| 4 | **Add two KPIs to the finance dashboard:** charge index vs national, and top-tier case share vs peers, reviewed quarterly. | Power BI model in [`powerbi/`](powerbi/) | Early warning on both levers |
+| 5 | **Next phase:** add earlier data years (trend), hospital cost reports for margin, and Medicare Advantage / commercial payment data. | Caveats below | Turns a screen into a forecast |
 
-## Tools and Technologies Used
+## 6. Caveats & Assumptions
 
-This project was implemented using the following tools:
-
-- **Python**
-  - pandas
-  - NumPy
-  - matplotlib
-- **SQL / MySQL**
-- **Tableau**
-- **Microsoft Excel**
-- **GitHub**
-
-Each tool served a different role in the project:
-
-- **Python** was used for data cleaning, feature engineering, and export of processed datasets
-- **SQL** was used to aggregate provider, DRG, and state-level metrics
-- **Tableau** was used to build executive-style dashboards and visual analytics
-- **Excel** was used to create a financial scenario model and sensitivity analysis
-- **GitHub** was used to organize and present the final project
-
----
-
-## Project Workflow
-
-The project was completed in four major stages.
-
-### 1. Data Preparation in Python
-
-The raw CMS dataset was imported into Python and cleaned for analysis.
-
-The following preprocessing steps were performed:
-
-- loaded the raw Medicare inpatient dataset
-- standardized column names
-- renamed key business fields for readability
-- inspected missing values and data quality
-- explored distributions of charges, payments, and discharges
-- prepared processed data for downstream SQL and Tableau analysis
-
-### 2. Feature Engineering
-
-Several important business metrics were created to make the data analytically useful.
-
-These included:
-
-**Payment Efficiency**  
-Measures the share of submitted charges that is reimbursed by Medicare.
-
-\[
-\text{Payment Efficiency} = \frac{\text{Average Medicare Payment}}{\text{Average Submitted Charge}}
-\]
-
-**Revenue Gap per Discharge**  
-Measures the difference between billed charges and reimbursement per case.
-
-\[
-\text{Revenue Gap per Discharge} = \text{Average Submitted Charge} - \text{Average Medicare Payment}
-\]
-
-**Revenue Leakage Percentage**  
-Measures the proportion of submitted charges not recovered through Medicare reimbursement.
-
-**Total Revenue Gap**  
-Measures the total provider-service financial exposure after accounting for patient volume.
-
-\[
-\text{Total Revenue Gap} = \text{Revenue Gap per Discharge} \times \text{Total Discharges}
-\]
-
-These metrics transformed raw billing data into a business-oriented analytical dataset.
+- **Charges are not revenue.** The $344B gap is descriptive; nothing in this analysis recovers it.
+- **Medicare fee-for-service only.** Medicare Advantage (about half of beneficiaries) and commercial payers are not in the data, so commercial price exposure is untested.
+- **One year (2023).** There is no trend, so "why is it changing" cannot be answered; this is a cross-section.
+- **Suppression.** CMS omits hospital × DRG cells of 10 or fewer discharges. Small hospitals and rare DRGs are under-represented, and suppressed cells can bias severity mix slightly. Severity screening excludes 949 of 2,945 hospitals with under 300 tiered discharges or fewer than 10 tiered families.
+- **No cost data.** Profit margin cannot be computed; "opportunity" is payment effect, not profit.
+- **Severity screen is not a forecast.** Lighter mixes can be clinically legitimate (e.g. complex patients transferred out); the 10/25/50% capture rates are assumptions, not estimates. Any documentation change must be clinically supported and compliant.
+- **Data quality.** 281 rows (0.19%) show payment above charges; they are kept and flagged. 33 DRG titles are truncated by CMS and are left out of severity tiering. Full log in the [data dictionary](docs/data_dictionary.md).
+- **Power BI:** `powerbi/HospitalPricing.pbip` was opened and refreshed in Power BI Desktop; the card totals match the SQL and Excel figures (charges $432.2B, payments $88.4B, 20.5% ratio). It is a Power BI Project (text files), not a saved `.pbix`. `dashboard/` is a separate browser version of the same four pages.
 
 ---
 
-### 3. SQL-Based Aggregation and Analysis
-
-The processed data was loaded into MySQL and analyzed using SQL queries.
-
-SQL scripts were created to aggregate financial exposure across different business dimensions:
-
-- provider-level exposure analysis
-- DRG-level exposure analysis
-- state-level summary analysis
-- Tableau-ready summary tables and views
-
-This allowed the project to answer questions such as:
-
-- Which providers generate the highest total revenue gap?
-- Which DRGs create the largest financial exposure?
-- How concentrated is the revenue gap problem?
-- Which states have the highest total exposure and lowest efficiency?
-
----
-
-### 4. Visualization in Tableau
-
-A set of dashboards was created in Tableau to communicate findings visually.
-
-The Tableau outputs include:
-
-#### Top Providers by Total Revenue Exposure
-Shows which providers contribute the most total revenue gap.
-
-#### Top DRGs by Total Revenue Exposure
-Highlights which inpatient services create the greatest reimbursement gap.
-
-#### DRG Pareto Curve
-Shows that a relatively small number of DRGs account for a large share of the total revenue exposure.
-
-#### Provider Exposure: Volume vs Gap per Discharge
-Distinguishes between:
-- providers with high volume-driven exposure
-- providers with high gap-per-discharge intensity
-
-#### State Efficiency Map
-Displays payment efficiency and revenue gap across states.
-
-#### Top States by Revenue Gap
-Ranks states by total financial exposure.
-
-These dashboards were designed to provide both executive-level summary insight and operational drill-down capability.
-
----
-
-## Tableau Dashboard Outputs
-
-### Geographic Dashboard
-![State Efficiency Dashboard](docs/state_efficiency_map.png)
-
-### Provider and DRG Exposure Dashboard
-![Tableau Dashboard Overview](docs/tableau_dashboard_overview.png)
-
----
-
-## Financial Scenario Modeling in Excel
-
-To move beyond descriptive analytics, an Excel-based financial scenario model was built.
-
-This model estimates how much revenue could potentially be recovered under different strategic interventions.
-
-The model includes:
-
-- scenario assumptions
-- baseline financial metrics
-- KPI summary
-- scenario comparison table
-- strategy comparison chart
-- sensitivity analysis
-- revenue recovery curve
-
----
-
-## Scenario Inputs
-
-The following assumptions were used in the financial model:
-
-- **System-wide efficiency gain:** 5%
-- **Target providers:** top 20 high-leakage providers
-- **Target provider efficiency gain:** 10%
-- **Target DRG improvement:** 8%
-- **Top DRGs considered:** 10
-- **High-volume provider share:** 30%
-- **High-volume efficiency gain:** 5%
-
-These inputs were used to simulate alternative revenue recovery strategies.
-
----
-
-## Financial Scenarios Modeled
-
-### Scenario 1 — System-wide Efficiency Improvement
-Assumes all providers improve payment efficiency by 5%.
-
-This models the potential effect of broad operational improvements across the healthcare system.
-
-**Estimated recovery:** approximately **$35.9B**
-
----
-
-### Scenario 2 — Target High-Leakage Providers
-Focuses on the providers contributing the highest total revenue gap.
-
-This models a targeted intervention strategy aimed at the most financially exposed providers.
-
-**Estimated recovery:** approximately **$236M**
-
----
-
-### Scenario 3 — Top DRG Optimization
-Targets the highest-exposure inpatient services (DRGs).
-
-This models the financial effect of improving coding, billing, or reimbursement efficiency in the most impactful service lines.
-
-**Estimated recovery:** approximately **$57.4B**
-
----
-
-### Scenario 4 — High-Volume Hospital Strategy
-Targets providers with large patient volumes.
-
-This models the financial effect of improving efficiency among high-volume hospitals, which contribute large total exposure even if their gap per discharge is moderate.
-
-**Estimated recovery:** approximately **$10.8B**
-
----
-
-### Sensitivity Analysis
-A sensitivity model was also built to measure how total recovery changes as efficiency improvements increase.
-
-For example:
-
-| Efficiency Improvement | Estimated Revenue Recovery |
-|---|---:|
-| 1% | ~$7.2B |
-| 2% | ~$14.4B |
-| 3% | ~$21.5B |
-| 5% | ~$35.9B |
-| 10% | ~$71.8B |
-
-This analysis demonstrates that even small improvements in payment efficiency can produce large financial gains.
-
----
-
-## Excel Scenario Model Output
-
-![Excel Scenario Model](docs/excel_scenario_model_1.png)
-
-![Excel Scenario Model](docs/excel_scenario_model_2.png)
-
----
-
-## Key Insights
-
-The analysis produced several important business insights:
-
-- The total estimated revenue gap across analyzed providers is approximately **$717.6B**, highlighting the scale of unrecovered financial exposure in the dataset.
-- Revenue leakage is **highly concentrated**, with a relatively small number of providers and DRGs accounting for a disproportionate share of total exposure.
-- Geographic variation is substantial, with certain states contributing significantly more total revenue gap than others.
-- High-volume hospitals contribute a large share of total exposure, even when their revenue gap per discharge is not the highest.
-- DRG-level optimization appears to offer one of the strongest targeted recovery opportunities.
-- Sensitivity analysis shows that even a **1% efficiency improvement could recover more than $7B**, indicating that operational improvements have high financial leverage.
-
----
-
-## Business Recommendations
-
-Based on the analysis, healthcare administrators and finance teams could consider the following actions:
-
-### 1. Prioritize High-Impact DRGs
-A small number of DRGs account for a large portion of total revenue gap. Improving coding quality, reimbursement workflow, and service-line efficiency for these DRGs could yield significant financial benefit.
-
-### 2. Target High-Leakage Providers
-Rather than attempting to optimize all providers at once, organizations could prioritize the hospitals contributing the highest total exposure.
-
-### 3. Focus on High-Volume Hospitals
-Because high-volume hospitals scale financial inefficiency across many cases, targeted process improvements in these facilities may generate substantial recovery.
-
-### 4. Monitor Payment Efficiency as a KPI
-Payment efficiency can serve as a practical operational metric for identifying reimbursement problems, benchmarking providers, and guiding intervention priorities.
-
-### 5. Use Scenario Modeling in Strategic Planning
-Financial scenario models can help leadership estimate the return of operational improvements and compare alternative intervention strategies before implementation.
-
----
-
-## Strategic Impact
-
-This project demonstrates how healthcare financial data can be transformed into a practical **decision-support framework**.
-
-Instead of simply describing where the problem exists, the analysis helps answer:
-
-- where revenue leakage is concentrated
-- which intervention strategies create the largest recovery potential
-- how sensitive financial outcomes are to operational improvements
-
-This makes the project relevant not only from a data science perspective, but also from a business strategy and healthcare operations perspective.
-
----
-
-## Project Structure
-
-```text
-healthcare-revenue-decision-support/
-│
-├── README.md
-├── requirements.txt
-├── .gitignore
-│
-├── data/
-│   ├── raw/
-│   └── processed/
-│
-├── notebooks/
-│   └── healthcare_revenue_analysis.ipynb
-│
-├── sql/
-│   ├── provider_analysis.sql
-│   ├── drg_analysis.sql
-│   └── views_for_tableau.sql
-│
-├── docs/
-│   ├── tableau_dashboard_overview.png
-│   ├── state_efficiency_map.png
-│   └── excel_scenario_model.png
-│
-└── outputs/
-    └── healthcare_revenue_scenario_model.xlsx
+## Repository guide
+
+| Path | Contents |
+|---|---|
+| [`sql/`](sql/) | `01_schema` (star schema) · `02_views` (KPI definitions) · `03_analysis_queries` (CTEs, window functions) · `04_severity_mix` |
+| [`python/build_database.py`](python/build_database.py) | Raw CMS file → SQLite star schema (IDs kept as text) |
+| [`notebooks/healthcare_analysis.ipynb`](notebooks/healthcare_analysis.ipynb) | Cleaning, EDA, driver analysis, segmentation, severity screen, exports |
+| [`excel/healthcare_opportunity_model.xlsx`](excel/healthcare_opportunity_model.xlsx) | Live-formula scenario model with assumptions, sensitivity, and v1 reconciliation |
+| [`powerbi/`](powerbi/) | Power BI Project (`HospitalPricing.pbip`: model, relationships, DAX measures, 4 report pages), theme, star-schema CSVs, generator script |
+| [`dashboard/`](dashboard/) | Browser version of the dashboard, data build and Playwright screenshot scripts |
+| [`docs/`](docs/) | Data dictionary, technical notes, chart images, archived v1 |
+
+*This README replaces v1, which reported a $717.6B "recoverable" gap. That figure double-counted a pivot-table total and treated list prices as revenue; the audit is in [technical notes](docs/technical_notes.md#audit-of-v1-kept-in-docsarchive_v1).*

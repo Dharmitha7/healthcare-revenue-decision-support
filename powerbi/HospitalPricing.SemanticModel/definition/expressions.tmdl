@@ -1,0 +1,5 @@
+expression DataFolder = "C:\Users\dharm\healthcare-revenue-decision-support\powerbi\data\" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: dd237ccc-d37f-5cbe-99e5-176f1f4d1bab
+
+	annotation PBI_ResultType = Text
+

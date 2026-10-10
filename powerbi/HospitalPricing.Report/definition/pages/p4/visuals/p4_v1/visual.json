@@ -1,0 +1,106 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.4.0/schema.json",
+  "name": "p4_v1",
+  "position": {
+    "x": 20,
+    "y": 215,
+    "width": 1240,
+    "height": 465,
+    "z": 70,
+    "tabOrder": 70
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "drillFilterOtherVisuals": true,
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "provider_severity_screen"
+                    }
+                  },
+                  "Property": "provider_name"
+                }
+              },
+              "queryRef": "provider_severity_screen.provider_name",
+              "nativeQueryRef": "provider_name"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "provider_severity_screen"
+                    }
+                  },
+                  "Property": "state_code"
+                }
+              },
+              "queryRef": "provider_severity_screen.state_code",
+              "nativeQueryRef": "state_code"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Eligible Shortfall"
+                }
+              },
+              "queryRef": "_Measures.Eligible Shortfall",
+              "nativeQueryRef": "Eligible Shortfall"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "_Measures"
+                  }
+                },
+                "Property": "Eligible Shortfall"
+              }
+            },
+            "direction": "Descending"
+          }
+        ],
+        "isDefaultSort": true
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Hospitals ranked by shortfall vs peers (screen only; clinical and compliance review decides what is supportable)'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
